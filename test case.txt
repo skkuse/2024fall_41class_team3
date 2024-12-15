@@ -1,0 +1,179 @@
+# Pseudo-code for Testing AST Analysis and Flowchart Creation
+
+FUNCTION test_ast_analysis():
+    INIT test_code = """
+    def foo(x):
+        if x > 0:
+            return x * 2
+        else:
+            return -x
+
+    def bar(y):
+        for i in range(y):
+            print(i)
+    """
+
+    PARSE tree FROM test_code USING AST
+
+    INIT blocks = []
+    FOR EACH node IN WALK(tree):
+        IF node IS (FunctionDef OR If OR For OR While):
+            ADD node TO blocks
+
+    ASSERT LENGTH(blocks) == 4
+    PRINT "AST Analysis Test Passed"
+
+FUNCTION test_evaluate_importance():
+    INIT blocks = [
+        {"type": "Function", "is_called": TRUE, "is_complex": TRUE},
+        {"type": "Condition", "is_called": FALSE, "is_complex": FALSE},
+        {"type": "Loop", "is_called": TRUE, "is_complex": FALSE},
+    ]
+
+    FUNCTION mock_evaluate_importance(blocks):
+        INIT scores = {}
+        FOR EACH block IN blocks:
+            SET score = 0
+            IF block.type == "Function":
+                score = 5
+            ELSE IF block.type IN ["Condition", "Loop"]:
+                score = 3
+            ELSE:
+                score = 1
+
+            IF block.is_called:
+                score += 2
+
+            IF block.is_complex:
+                score += 1
+
+            scores[block] = score
+
+        RETURN scores
+
+    INIT importance_scores = mock_evaluate_importance(blocks)
+
+    # Basic Functionality Test
+    ASSERT importance_scores[0] == 8, "Expected: 8, Got: " + importance_scores[0]
+    ASSERT importance_scores[1] == 3, "Expected: 3, Got: " + importance_scores[1]
+    ASSERT importance_scores[2] == 5, "Expected: 5, Got: " + importance_scores[2]
+
+    # Edge Case: Empty Input
+    INIT empty_blocks = []
+    INIT empty_scores = mock_evaluate_importance(empty_blocks)
+    ASSERT LENGTH(empty_scores) == 0, "Scores should be empty for empty input."
+
+    # Test with Unknown Block Type
+    INIT unknown_blocks = [{"type": "Unknown", "is_called": FALSE, "is_complex": FALSE}]
+    INIT unknown_scores = mock_evaluate_importance(unknown_blocks)
+    ASSERT unknown_scores[unknown_blocks[0]] == 1, "Expected: 1 for unknown type."
+
+    # Large Dataset Test
+    INIT large_blocks = [{"type": "Function", "is_called": TRUE, "is_complex": TRUE} * 1000]
+    INIT large_scores = mock_evaluate_importance(large_blocks)
+    ASSERT LENGTH(large_scores) == 1000, "Scores count mismatch for large dataset."
+
+    PRINT "Importance Evaluation Test Passed"
+
+FUNCTION test_cluster_code_blocks():
+    INIT importance_scores = {0: 8, 1: 3, 2: 5, 3: 2}
+
+    FUNCTION mock_cluster_code_blocks(importance_scores, threshold):
+        INIT nodes = []
+        INIT subflows = []
+
+        FOR EACH block, score IN importance_scores:
+            IF score >= threshold:
+                ADD block TO subflows
+            ELSE:
+                ADD block TO nodes
+
+        RETURN nodes, subflows
+
+    # Test with threshold = 4
+    INIT nodes, subflows = mock_cluster_code_blocks(importance_scores, threshold=4)
+    ASSERT nodes == [1, 3], "Expected nodes: [1, 3], Got: " + nodes
+    ASSERT subflows == [0, 2], "Expected subflows: [0, 2], Got: " + subflows
+
+    # Edge case: Empty importance_scores
+    INIT nodes, subflows = mock_cluster_code_blocks({}, threshold=4)
+    ASSERT nodes == [], "Nodes should be empty for empty input."
+    ASSERT subflows == [], "Subflows should be empty for empty input."
+
+    # Large dataset test
+    INIT large_scores = {i: i % 10 FOR i IN RANGE(1000)}
+    INIT nodes, subflows = mock_cluster_code_blocks(large_scores, threshold=5)
+    ASSERT LENGTH(nodes) + LENGTH(subflows) == LENGTH(large_scores), "Block count mismatch."
+
+    PRINT "All Clustering Tests Passed!"
+
+FUNCTION test_create_recursive_flowchart():
+    # 단일 블록 처리 테스트
+    INIT simple_code = """
+    def foo():
+        print("Hello")
+    """
+    PARSE tree FROM simple_code USING AST
+    INIT flowchart = create_recursive_flowchart(tree)
+    ASSERT "Function Node" IN flowchart.nodes, "Function Node missing for single block."
+
+    # 다중 블록 처리 테스트
+    INIT multiple_code = """
+    def foo():
+        if True:
+            print("Hello")
+        for i in range(5):
+            print(i)
+    """
+    PARSE tree FROM multiple_code USING AST
+    INIT flowchart = create_recursive_flowchart(tree)
+    ASSERT LENGTH(flowchart.nodes) == 1, "Expected 1 root node, Got: " + LENGTH(flowchart.nodes)
+    ASSERT LENGTH(flowchart.subflows) == 2, "Expected 2 subflows, Got: " + LENGTH(flowchart.subflows)
+
+    # 중첩 구조 처리 테스트
+    INIT nested_code = """
+    def foo():
+        if True:
+            for i in range(5):
+                if i % 2 == 0:
+                    print(i)
+    """
+    PARSE tree FROM nested_code USING AST
+    INIT flowchart = create_recursive_flowchart(tree)
+    ASSERT "Function Node" IN flowchart.nodes, "Missing Function Node for nested structure."
+    ASSERT LENGTH(flowchart.subflows) == 1, "Expected 1 subflow for nested If."
+    ASSERT LENGTH(flowchart.subflows[0].subflows) == 1, "Expected 1 nested subflow."
+
+    # 빈 입력 처리 테스트
+    INIT empty_code = ""
+    PARSE tree FROM empty_code USING AST
+    INIT flowchart = create_recursive_flowchart(tree)
+    ASSERT flowchart.nodes == [], "Expected empty nodes for empty input."
+    ASSERT flowchart.subflows == [], "Expected empty subflows for empty input."
+
+    # 복잡한 코드 처리 테스트
+    INIT complex_code = """
+    def foo(x):
+        if x > 0:
+            for i in range(x):
+                if i % 2 == 0:
+                    print(i)
+        else:
+            print("Negative")
+    """
+    PARSE tree FROM complex_code USING AST
+    INIT flowchart = create_recursive_flowchart(tree)
+    ASSERT "Function Node" IN flowchart.nodes, "Missing Function Node for complex code."
+    ASSERT LENGTH(flowchart.subflows) >= 2, "Subflows missing for complex structure."
+
+    PRINT "All create_recursive_flowchart tests passed!"
+
+
+FUNCTION main():
+    CALL test_ast_analysis()
+    CALL test_evaluate_importance()
+    CALL test_cluster_code_blocks()
+    CALL test_create_recursive_flowchart()
+    PRINT "All Tests Passed!"
+
+CALL main()
